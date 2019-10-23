@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "devinstall"
+version = "0.1.0"
+description = ""
+authors = ["Aaron Christianson <ninjaaron@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.5"
+lazycli = {git = "https://github.com/ninjaaron/lazycli"}
+collist = {git = "https://github.com/ninjaaron/collist"}
+libaaron = "^1.4"
+
+[tool.poetry.scripts]
+devinstall = "devinstall:script.run"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.0"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
