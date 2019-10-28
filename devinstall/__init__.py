@@ -2,10 +2,13 @@ import os
 from functools import partial
 from pathlib import Path
 import subprocess as sp
-import sys
 import lazycli
+import pathlib
+import tarfile
 
 import collist
+
+here = pathlib.Path().absolute()
 
 script = lazycli.script()
 
@@ -24,11 +27,39 @@ class compose:
         return data
 
 
+def extract_setupfile(path: pathlib.Path = here):
+    path = path.absolute()
+    os.chdir(path)
+    sp.run(["poetry", "build"], check=True)
+    archive_name = sorted((path / "dist").glob("*.tar.gz"))[-1]
+    with tarfile.open(archive_name) as archive:
+        for filename in archive.getnames():
+            if filename.endswith("/setup.py"):
+                break
+        archive.extract(filename)
+
+    extracted = pathlib.Path(filename)
+    extracted.rename(path / "setup.py")
+    extracted.parent.rmdir()
+    os.chdir(here)
+
+
 def install_editable(repo, pip="pip"):
     sp.run(["git", "clone", "--recurse-submodules", repo], check=True)
     if repo.endswith(".git"):
         repo = repo[:-4]
-    sp.run([pip, "install", "-e", repo.split("/")[-1]], check=True)
+
+    localrepo = pathlib.Path(repo.split("/")[-1])
+    pyprojectfile = localrepo / "pyproject.toml"
+    temp = pathlib.Path(str(pyprojectfile) + ".old")
+    if pyprojectfile.exists():
+        extract_setupfile(localrepo)
+        pyprojectfile.rename(temp)
+
+    sp.run([pip, "install", "-e", str(localrepo)], check=True)
+
+    if temp.exists():
+        temp.rename(pyprojectfile)
 
 
 def install_remote(repo, pip="pip"):
@@ -72,6 +103,14 @@ def get_repos(repofile: Path):
 
 @script.subcommand
 def install(repofile: Path, venv: Path = None):
+    """Take the path of a file with an address of git repositories on each
+    line. Gives the option to install directly from the repo or to clone the
+    repo and install as editable.
+
+    optionally, supply the name for a virtual environment that will be created
+    where the packages will be installed.
+
+    """
     if venv and not venv.exists():
         sp.run(["python", "-m", "venv", str(venv)], check=True)
     pip = str(venv / "bin" / "pip") if venv else "pip"
@@ -88,10 +127,18 @@ def install(repofile: Path, venv: Path = None):
 
 @script.subcommand
 def update(repofile: Path, venv: Path = None):
+    """Take the path of a file with an address of git repositories on each
+    line. This file should contain repos previously installed with `devinstall
+    install`. This will update any files that are not installed locally.
+
+    optionally, supply the name for a virtual environment where things are
+    installed.
+    """
     repos = get_repos(repofile)
     local, remote = classify_repos(repos)
+    pip = str(venv / "bin" / "pip") if venv else "pip"
     for repo in remote:
-        install_remote(repo)
+        install_remote(repo, pip)
 
 
 if __name__ == "__main__":
