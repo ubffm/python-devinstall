@@ -30,18 +30,20 @@ class compose:
 def extract_setupfile(path: pathlib.Path = here):
     path = path.absolute()
     os.chdir(path)
-    sp.run(["poetry", "build"], check=True)
-    archive_name = sorted((path / "dist").glob("*.tar.gz"))[-1]
-    with tarfile.open(archive_name) as archive:
-        for filename in archive.getnames():
-            if filename.endswith("/setup.py"):
-                break
-        archive.extract(filename)
+    try:
+        sp.run(["poetry", "build"], check=True)
+        archive_name = sorted((path / "dist").glob("*.tar.gz"))[-1]
+        with tarfile.open(archive_name) as archive:
+            for filename in archive.getnames():
+                if filename.endswith("/setup.py"):
+                    break
+            archive.extract(filename)
 
-    extracted = pathlib.Path(filename)
-    extracted.rename(path / "setup.py")
-    extracted.parent.rmdir()
-    os.chdir(here)
+        extracted = pathlib.Path(filename)
+        extracted.rename(path / "setup.py")
+        extracted.parent.rmdir()
+    finally:
+        os.chdir(here)
 
 
 def install_editable(repo, pip="pip"):
@@ -53,8 +55,11 @@ def install_editable(repo, pip="pip"):
     pyprojectfile = localrepo / "pyproject.toml"
     temp = pathlib.Path(str(pyprojectfile) + ".old")
     if pyprojectfile.exists():
-        extract_setupfile(localrepo)
-        pyprojectfile.rename(temp)
+        try:
+            extract_setupfile(localrepo)
+            pyprojectfile.rename(temp)
+        except sp.CalledProcessError:
+            pass
 
     sp.run([pip, "install", "-e", str(localrepo)], check=True)
 
