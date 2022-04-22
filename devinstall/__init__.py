@@ -119,6 +119,7 @@ def install(repofile: Path, venv: Path = None):
     if venv and not venv.exists():
         sp.run(["python", "-m", "venv", str(venv)], check=True)
     pip = str(venv / "bin" / "pip") if venv else "pip"
+    sp.run([pip, "install", "--update", "pip"])
     repos = get_repos(repofile)
     print(collist.collist({i: n for i, n in enumerate(repos)}))
     editable = select("which packages would you like to install for local editing? ")
@@ -142,6 +143,7 @@ def update(repofile: Path, venv: Path = None):
     repos = get_repos(repofile)
     local, remote = classify_repos(repos)
     pip = str(venv / "bin" / "pip") if venv else "pip"
+    sp.run([pip, "install", "--update", "pip"])
     for repo in remote:
         install_remote(repo, pip)
 
